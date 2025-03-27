@@ -1,11 +1,13 @@
 import serial
 import time
 import csv
+import json
 
 # Change this to your actual COM port
 COM_PORT = "COM9"
 BAUD_RATE = 115200
 CSV_FILE = "expected_results.csv"
+BADGE_FILE = "badges/results-badge.json"
 
 def read_expected_results(file_path):
     expected = []
@@ -16,11 +18,20 @@ def read_expected_results(file_path):
             expected.append([int(v) for v in row])
     return expected
 
+def write_badge(passed):
+    badge_data = {
+        "schemaVersion": 1,
+        "label": "Supervisor Tests",
+        "message": "pass" if passed else "fail",
+        "color": "brightgreen" if passed else "red"
+    }
+    with open(BADGE_FILE, "w") as f:
+        json.dump(badge_data, f)
+
 def main():
     ser = serial.Serial(COM_PORT, BAUD_RATE, timeout=1)
     time.sleep(2)  # Give Arduino time to reset
 
-    # 🔁 Tell Arduino to start test
     ser.write(b'start\n')
     print("📡 Listening for test results...\n")
 
@@ -41,6 +52,10 @@ def main():
     for actual, expect in zip(results, expected):
         status = "✅ PASS" if actual == expect else "❌ FAIL"
         print(f"Test {actual[0]}: Got {actual[1:]} | Expected {expect[1:]} → {status}")
+
+    # Badge update moved inside main
+    all_passed = all(actual == expect for actual in results for expect in [expected[actual[0]]])
+    write_badge(all_passed)
 
     ser.close()
 
