@@ -10,6 +10,8 @@ BAUD_RATE = 115200
 CSV_FILE = "expected_results.csv"
 BADGE_FOLDER = "badges"
 OVERALL_BADGE = os.path.join(BADGE_FOLDER, "results-badge.json")
+PERCENTAGE_BADGE = os.path.join(BADGE_FOLDER, "results-percentage-badge.json")
+FRACTION_BADGE = os.path.join(BADGE_FOLDER, "results-fraction-badge.json")
 
 
 def read_expected_results(file_path):
@@ -30,6 +32,29 @@ def write_badge(passed):
         "color": "brightgreen" if passed else "red"
     }
     with open(OVERALL_BADGE, "w") as f:
+        json.dump(badge_data, f)
+
+
+def write_percentage_badge(passed, total):
+    percent = int((passed / total) * 100)
+    badge_data = {
+        "schemaVersion": 1,
+        "label": "Passing",
+        "message": f"{percent}%",
+        "color": "brightgreen" if percent == 100 else "orange" if percent >= 50 else "red"
+    }
+    with open(PERCENTAGE_BADGE, "w") as f:
+        json.dump(badge_data, f)
+
+
+def write_fraction_badge(passed, total):
+    badge_data = {
+        "schemaVersion": 1,
+        "label": "Passed",
+        "message": f"{passed}/{total}",
+        "color": "brightgreen" if passed == total else "orange" if passed > 0 else "red"
+    }
+    with open(FRACTION_BADGE, "w") as f:
         json.dump(badge_data, f)
 
 
@@ -69,13 +94,18 @@ def main():
     expected = read_expected_results(CSV_FILE)
 
     print("\n🔎 Checking results...")
+    num_passed = 0
     for actual, expect in zip(results, expected):
-        status = "✅ PASS" if actual == expect else "❌ FAIL"
+        passed = actual == expect
+        if passed:
+            num_passed += 1
+        status = "✅ PASS" if passed else "❌ FAIL"
         print(f"Test {actual[0]}: Got {actual[1:]} | Expected {expect[1:]} → {status}")
 
-    # Generate badges
-    all_passed = all(actual == expect for actual, expect in zip(results, expected))
-    write_badge(all_passed)
+    total = len(expected)
+    write_badge(num_passed == total)
+    write_percentage_badge(num_passed, total)
+    write_fraction_badge(num_passed, total)
     write_individual_badges(results, expected)
 
     ser.close()
